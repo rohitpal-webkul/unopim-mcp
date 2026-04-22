@@ -351,7 +351,7 @@ PHP;
 
 namespace Webkul\\{$name}\\Models;
 
-use Konecty\\Concord\\Proxies\\ModelProxy;
+use Konekt\\Concord\\Proxies\\ModelProxy;
 
 class CredentialProxy extends ModelProxy
 {

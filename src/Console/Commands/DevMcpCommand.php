@@ -26,6 +26,6 @@ class DevMcpCommand extends Command
      */
     public function handle(): int
     {
-        return Artisan::call('mcp:start', ['handle' => 'unopim-dev']);
+        return $this->call('mcp:start', ['handle' => 'unopim-dev']);
     }
 }
