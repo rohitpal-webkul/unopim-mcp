@@ -21,6 +21,15 @@ Empower AI assistants (GitHub Copilot, Claude, Cursor, Windsurf) to interact wit
 - **Comprehensive Test Suite** — Unit and feature tests covering all tools, services, and security layers.
 
 ---
+## 📖 Detailed Documentation
+
+- **[Use Cases](docs/use-cases.md)**: Real-world scenarios for Catalog Managers, Developers, and Business Analysts.
+- **[Development Workflow](docs/development-workflow.md)**: How to integrate MCP into your daily coding routine for UnoPim.
+- **[Tool Reference](docs/tool-reference.md)**: Every tool with parameters, defaults, permissions, and query operators.
+- **[Configuration](docs/configuration.md)**: Every `config/mcp.php` key, the env vars that drive it, and a production checklist.
+- **[Troubleshooting](docs/troubleshooting.md)**: Fixes for the most common connection, auth, and tool-execution errors.
+- **[UnoPim vs. Akeneo MCP](docs/comparison-and-benefits.md)**: Why the UnoPim bridge is the superior choice for developers.
+- **[Extending the Bridge](docs/extending-mcp.md)**: Guide to creating custom "Skills" and implementing new Core Tools.
 
 ## Requirements
 
@@ -32,18 +41,29 @@ Empower AI assistants (GitHub Copilot, Claude, Cursor, Windsurf) to interact wit
 
 ---
 
-## Installation
+## 🛠️ Quick Start & Setup
+
+### 1. Installation
+Install the package via composer into your UnoPim root:
 
 ```bash
 composer require unopim/mcp
 php artisan mcp:install
 ```
 
-Ensure `APP_URL` is set correctly in `.env`.
+### 2. Basic Configuration
+Ensure `APP_URL` is set in your `.env`. If you plan to use the HTTP transport (SSE) for remote access, you may need to generate an API token for your user.
+
+### 3. Usage (The 10-Second Test)
+To verify everything is working, run the inspector:
+```bash
+php artisan mcp:inspector unopim-dev
+```
+This will launch a web interface where you can test each tool manually.
 
 ---
 
-## Connecting to AI Editors / Agents
+## 🔌 Connecting to AI Editors / Agents
 
 Register the MCP server in your editor's config file. Both HTTP and stdio transports are supported.
 
@@ -95,33 +115,34 @@ claude mcp add unopim-dev -- php artisan mcp:start unopim-dev
 
 ## Configuration (`config/mcp.php`)
 
-After running `mcp:install`, you can customize settings in `config/mcp.php`:
+`mcp:install` publishes the config file via the `mcp-config` tag. The published file mirrors `packages/Webkul/MCP/src/Config/mcp.php`:
 
 ```php
 return [
-    // Require Bearer token for HTTP requests
+    // Require a Bearer token (Passport `auth:api`) for HTTP MCP endpoints.
     'api_auth' => env('MCP_API_AUTH', true),
 
-    // Max requests per minute per tool per client
+    // Max requests per minute per tool per caller (IP for HTTP, "cli" for stdio).
     'rate_limit' => env('MCP_RATE_LIMIT', 60),
 
-    // Restricted paths for File Manager
+    // FileManager / dev-tool jail. Anything outside is rejected.
     'allowed_paths' => [
         base_path(),
         sys_get_temp_dir(),
     ],
 
-    // Audit logging for destructive operations
+    // Log every destructive tool call (upserts, dev_tools mutations).
     'audit_logging' => env('MCP_AUDIT_LOGGING', true),
 
-    // Dynamic skills directory
+    // Where SkillLoader looks for SKILL.md files.
     'skills_path' => env('MCP_SKILLS_PATH', base_path('.ai/skills')),
 
-    // Skill caching
+    // Skill registry caching.
     'enable_cache' => env('MCP_ENABLE_CACHE', true),
+    'cache_key'    => 'mcp.skills',
     'cache_ttl'    => env('MCP_CACHE_TTL', 3600),
 
-    // Media upload restrictions (for future media tools)
+    // Reserved for upcoming media tools.
     'media' => [
         'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'csv', 'xlsx'],
         'allowed_mimes'      => [
@@ -134,11 +155,15 @@ return [
 ];
 ```
 
+Per-key behavior, env-var mapping, and a production checklist live in **[docs/configuration.md](docs/configuration.md)**.
+
 ---
 
 ## Available Tools
 
-### Catalog (8 tools)
+Source of truth: `packages/Webkul/MCP/src/Registry/ToolRegistry.php`. See [docs/tool-reference.md](docs/tool-reference.md) for parameters and permission mapping.
+
+### Catalog (13 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -150,31 +175,50 @@ return [
 | `upsert_categories` | Batch create/update categories (max 50 per call, atomic transaction). |
 | `search_attributes` | Cursor-paginated attribute search with filters. |
 | `upsert_attributes` | Batch create/update attributes (max 50 per call, atomic transaction). |
+| `search_attribute_options` | Cursor-paginated search across attribute options. |
+| `search_families` | Search attribute families. |
+| `upsert_families` | Batch create/update attribute families. |
+| `search_attribute_groups` | Search attribute groups. |
+| `upsert_attribute_groups` | Batch create/update attribute groups. |
 
-### Settings (2 tools)
+### Settings (4 tools)
 
 | Tool | Description |
 |------|-------------|
-| `search_settings` | Search channels or locales with filters (pass `type`: `channels` or `locales`). |
+| `search_settings` | Search channels or locales (pass `type`: `channels` or `locales`). |
 | `upsert_settings` | Create/update channels or locales (max 50 per call). |
+| `search_currencies` | Search currencies with filters. |
+| `upsert_currencies` | Batch create/update currencies (max 50 per call). |
 
-### Developer Tools (2 core + dynamic)
+### Data Transfer (2 tools)
+
+| Tool | Description |
+|------|-------------|
+| `search_jobs` | Search import/export job instances by `code`, `type`, `entity_type`, `action`. |
+| `get_job_execution` | Fetch a single job execution (JobTrack) by ID with status, counts, and errors. |
+
+### Developer Tools (6 core + dynamic)
 
 | Tool | Description |
 |------|-------------|
 | `dev_tools` | Unified action tool with 6 actions: `create_file`, `read_file`, `update_file`, `run_command`, `generate_plugin`, `generate_test`. |
 | `run_skill` | Execute a predefined skill from `.ai/skills/` by name. |
-| Dynamic Skills | Each `SKILL.md` in `.ai/skills/` is auto-registered as `execute_<skill_name>`. |
+| `get_app_info` | Inspect the host app — Laravel/PHP versions, environment, installed packages. |
+| `get_database_schema` | Introspect tables, columns, and relationships. Pass a `table` to scope. |
+| `run_database_query` | Execute a read-only SQL query against the configured connection. |
+| `read_logs` | Tail entries from `storage/logs/laravel.log` (and named log channels). |
+| Dynamic Skills | Each `SKILL.md` under `mcp.skills_path` is auto-registered as `execute_<skill_name>`. |
 
 ### Artisan Commands
 
 | Command | Description |
 |---------|-------------|
-| `php artisan mcp:install` | Setup OAuth, publish config, clear caches. |
-| `php artisan mcp:make plugin <Name>` | Scaffold a complete UnoPim plugin (`connector`, `core-extension`, or `generic`). |
-| `php artisan mcp:make test <Package> <Class>` | Generate a Pest test for a class. |
-| `php artisan mcp:dev` | Start the STDIO MCP server for local coding agents. |
-| `php artisan mcp:inspector <server>` | Launch the MCP Inspector debugger. |
+| `php artisan mcp:install` | Run Passport scaffolding (if installed), publish `config/mcp.php`, and clear caches. |
+| `php artisan mcp:make plugin <Name> [--type=connector\|core-extension\|generic]` | Scaffold a complete UnoPim plugin. |
+| `php artisan mcp:make test <Package> <Class>` | Generate a Pest test skeleton for a class. |
+| `php artisan mcp:dev` | Alias for `mcp:start unopim-dev` — starts the stdio server for local coding agents. |
+| `php artisan mcp:start <handle>` | Start an MCP server over stdio (provided by `laravel/mcp`). |
+| `php artisan mcp:inspector <server>` | Launch the MCP Inspector against a stdio handle (e.g. `unopim-dev`) or HTTP path (e.g. `mcp/unopim`). |
 
 ### MCP Resources & Prompts
 
@@ -254,18 +298,19 @@ packages/Webkul/MCP/
 │   ├── DevTools/                          # FileManager, CommandRunner, PluginGenerator, TestGenerator
 │   ├── Prompts/Catalog/                   # CatalogAnalysisPrompt
 │   ├── Providers/MCPServiceProvider.php   # Service registration, route loading
-│   ├── Registry/ToolRegistry.php          # Static registry of 12 core tools
+│   ├── Registry/ToolRegistry.php          # Static registry of 25 core tools
 │   ├── Resources/Catalog/                 # CatalogSchemaResource
-│   ├── Routes/mcp-routes.php             # HTTP endpoint registration
+│   ├── Routes/mcp-routes.php             # HTTP endpoint registration (POST /api/mcp/unopim)
 │   ├── Servers/
 │   │   ├── UnoPimAgentServer.php          # Main MCP server (tools, resources, prompts, skills)
 │   │   └── Methods/PimCallTool.php        # Auth, rate limiting, ACL, audit proxy
 │   ├── Services/                          # SkillExecutor, SkillLoader, SkillParser, UnoPimQueryBuilder
 │   └── Tools/
 │       ├── BaseMcpTool.php                # Abstract base with error handling
-│       ├── Catalog/                       # 8 catalog tools (schema, search, get, upsert)
-│       ├── Dev/                           # DevToolsTool, RunSkillTool, DynamicSkillTool
-│       └── Settings/                      # SettingSearchTool, SettingUpsertTool
+│       ├── Catalog/                       # 13 catalog tools (schema, products, categories, attributes, families, groups, options)
+│       ├── DataTransfer/                  # JobSearchTool, JobExecutionTool
+│       ├── Dev/                           # DevToolsTool, RunSkillTool, DynamicSkillTool, AppInfoTool, DatabaseSchemaTool, DatabaseQueryTool, LogReadTool
+│       └── Settings/                      # SettingSearchTool, SettingUpsertTool, CurrencySearchTool, CurrencyUpsertTool
 ├── tests/
 │   ├── Pest.php                           # Pest configuration
 │   ├── MCPTestCase.php                    # Base test class
