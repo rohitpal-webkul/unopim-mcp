@@ -1,0 +1,92 @@
+<?php
+
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
+use Laravel\Mcp\Server\Transport\FakeTransporter;
+use Webkul\MCP\Servers\UnoPimAgentServer;
+
+beforeEach(function () {
+    $this->tempDir = sys_get_temp_dir().'/mcp_server_test_'.uniqid();
+    mkdir($this->tempDir);
+    mkdir($this->tempDir.'/test-skill');
+    file_put_contents($this->tempDir.'/test-skill/SKILL.md', "---\nname: Test Skill\ndescription: Test desc\n---\nBody");
+
+    Config::set('mcp.skills_path', $this->tempDir);
+    Config::set('mcp.enable_cache', false);
+});
+
+afterEach(function () {
+    File::deleteDirectory($this->tempDir);
+});
+
+it('registers all required catalog tools', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+
+    $context = $server->createContext();
+    $toolNames = $context->tools()->map(fn ($t) => $t->name())->toArray();
+
+    expect($toolNames)->toContain('get_catalog_schema');
+    expect($toolNames)->toContain('search_products');
+    expect($toolNames)->toContain('get_product');
+    expect($toolNames)->toContain('upsert_products');
+    expect($toolNames)->toContain('search_categories');
+    expect($toolNames)->toContain('upsert_categories');
+    expect($toolNames)->toContain('search_attributes');
+    expect($toolNames)->toContain('upsert_attributes');
+});
+
+it('registers all settings tools', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+
+    $context = $server->createContext();
+    $toolNames = $context->tools()->map(fn ($t) => $t->name())->toArray();
+
+    expect($toolNames)->toContain('search_settings');
+    expect($toolNames)->toContain('upsert_settings');
+});
+
+it('registers all dev tools', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+
+    $context = $server->createContext();
+    $toolNames = $context->tools()->map(fn ($t) => $t->name())->toArray();
+
+    expect($toolNames)->toContain('dev_tools');
+    expect($toolNames)->toContain('run_skill');
+});
+
+it('registers dynamic skills as tools', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+    $context = $server->createContext();
+    $toolNames = $context->tools()->map(fn ($t) => is_string($t) ? $t : $t->name())->toArray();
+
+    // Dynamic skill names are prefixed with "execute_"
+    $dynamicSkills = collect($toolNames)->filter(fn ($name) => str_starts_with($name, 'execute_'));
+
+    expect($dynamicSkills->count())->toBeGreaterThan(0);
+});
+
+it('registers at least 12 core tools', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+    $context = $server->createContext();
+    $toolNames = $context->tools()->map(fn ($t) => is_string($t) ? $t : $t->name())->toArray();
+
+    // At least 12 core tools + dynamic skills
+    expect(count($toolNames))->toBeGreaterThanOrEqual(12);
+});
+
+it('registers catalog schema resource', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+    $context = $server->createContext();
+    $resourceNames = $context->resources()->map(fn ($r) => $r->name())->toArray();
+
+    expect($resourceNames)->toContain('catalog-schema');
+});
+
+it('registers catalog analysis prompt', function () {
+    $server = app(UnoPimAgentServer::class, ['transport' => new FakeTransporter]);
+    $context = $server->createContext();
+    $promptNames = $context->prompts()->map(fn ($p) => $p->name())->toArray();
+
+    expect($promptNames)->toContain('analyze-catalog');
+});
